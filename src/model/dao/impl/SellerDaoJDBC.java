@@ -4,10 +4,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import javax.naming.spi.DirStateFactory.Result;
-
+import db.DB;
 import db.DbExeption;
 import model.dao.SellerDao;
 import model.entities.Department;
@@ -54,7 +56,7 @@ public class SellerDaoJDBC  implements SellerDao{
             st.setInt(1, id);
             rs = st.executeQuery();
             //testando se veio algum resultado
-            if(rs.next()){
+            while(rs.next()){
                 Department dep = instatiesDepartment(rs);
                 Seller obj = instatiateSeller(rs, dep);
                 return obj;
@@ -62,6 +64,9 @@ public class SellerDaoJDBC  implements SellerDao{
             return null;
         } catch (SQLException e) {
             throw new DbExeption(e.getMessage());
+        } finally{
+            DB.closeStatement(st);
+            DB.closeResultSet(rs);
         }
     }
 
@@ -87,8 +92,48 @@ public class SellerDaoJDBC  implements SellerDao{
 
     @Override
     public List<Seller> findAll() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findAll'");
+        return null;
+    }
+
+    @Override
+    public List<Seller> findByDepartment(Department department) {
+        PreparedStatement st = null;
+        ResultSet rs = null;
+        try {
+            st = conn.prepareStatement(
+                "SELECT seller.*,department.Name as DepName  " + 
+                        "FROM seller INNER JOIN department  " + 
+                        "ON seller.DepartmentId = department.Id " + 
+                        "WHERE DepartmentId = ?" + 
+                        "ORDER BY Name "
+            );
+            st.setInt(1, department.getId());
+            rs = st.executeQuery();
+
+            List<Seller> list = new ArrayList<>();
+            Map<Integer, Department> map = new HashMap<>();
+
+            while(rs.next()){
+                //testando se o department já existe
+                Department dep = map.get(rs.getInt("DepartmentId"));
+
+                if(dep == null){
+                    dep = instatiesDepartment(rs);
+                    map.put(rs.getInt("DepartmentId"), dep);
+                }
+
+                Seller obj = instatiateSeller(rs, dep);
+                list.add(obj);
+            }
+
+            return list;
+
+        } catch (SQLException e) {
+            throw new DbExeption(e.getMessage());
+        } finally{
+            DB.closeStatement(st);
+            DB.closeResultSet(rs);
+        }
     }
     
 }
